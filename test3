@@ -1,0 +1,82 @@
+//@version=5
+indicator("Next Candle Prediction", overlay=true)
+
+// 短期のEMA (Exponential Moving Average) として期間を変更
+ema5 = ta.ema(close, 5)
+ema9 = ta.ema(close, 9)
+ema20 = ta.ema(close, 20)
+
+// Bollinger Bands with period 20
+basis = ta.sma(close, 20)
+deviation = ta.stdev(close, 20)
+upperBand = basis + (2 * deviation)
+lowerBand = basis - (2 * deviation)
+
+// Calculate MACD manually with fast period 12 and slow period 26
+shortEMA = ta.ema(close, 12)
+longEMA = ta.ema(close, 26)
+macdLine = shortEMA - longEMA
+signalLine = ta.sma(macdLine, 9)
+
+// RSI (Relative Strength Index) with period 14
+rsi14 = ta.rsi(close, 14)
+
+// Additional Price Action Patterns
+spikeHigh = high > ta.highest(high[1], 5)
+spikeLow = low < ta.lowest(low[1], 5)
+pinBarLow = close < low[1] and close > open
+pinBarHigh = close > high[1] and close < open
+runwayUp = close > open and close > close[1] and open < open[1]
+runwayDown = close < open and close < close[1] and open > open[1]
+insideBar = high < high[1] and low > low[1]
+outsideBar = high > high[1] and low < low[1]
+
+// Support and Resistance Levels
+support = ta.lowest(low, 20)[1]
+resistance = ta.highest(high, 20)[1]
+pullbackLow = close < support
+pullbackHigh = close > resistance
+
+// Range Breakout Conditions
+rangeHigh = ta.highest(high, 50)
+rangeLow = ta.lowest(low, 50)
+rangeBreakoutLong = close > rangeHigh
+rangeBreakoutShort = close < rangeLow
+
+// Detect trend reversal points
+reversalUp = ta.crossover(ema5, ema9) and close > ema20
+reversalDown = ta.crossunder(ema5, ema9) and close < ema20
+
+// Add conditions for trend confirmation
+trendUp = ema5 > ema9 and ema9 > ema20 and close > upperBand and macdLine > signalLine
+trendDown = ema5 < ema9 and ema9 < ema20 and close < lowerBand and macdLine < signalLine
+
+// Filter out signals at trend tops and bottoms
+filteredUp = trendUp and not (reversalUp or pullbackLow or rangeBreakoutLong)
+filteredDown = trendDown and not (reversalDown or pullbackHigh or rangeBreakoutShort)
+
+// Output the prediction accuracy percentage
+accuracy = int((float(ema5 - ema9) / float(ema9)) * 100)  // Convert accuracy to integer
+
+// Display accuracy percentage without decimal points when accuracy is 20% or higher
+colorLabel = accuracy >= 20 ? trendUp ? color.green : trendDown ? color.red : na : na
+label1 = accuracy >= 20 ? label.new(x=bar_index, y=close, text=str.tostring(accuracy) + "% Accuracy", color=colorLabel, style=label.style_label_down, size=size.normal, yloc=yloc.abovebar) : na
+
+// Display bullish and bearish signals
+plotshape(series=filteredUp ? close : na, title="Bullish Signal", location=location.belowbar, color=color.green, style=shape.labelup, text="Bullish")
+plotshape(series=filteredDown ? close : na, title="Bearish Signal", location=location.abovebar, color=color.red, style=shape.labeldown, text="Bearish")
+
+// Display reversal signals
+plotshape(series=reversalUp ? close : na, title="Reversal Up", location=location.belowbar, color=color.blue, style=shape.triangleup, text="Reversal Up")
+plotshape(series=reversalDown ? close : na, title="Reversal Down", location=location.abovebar, color=color.orange, style=shape.triangledown, text="Reversal Down")
+
+// Display BTC/USD 30-second chart
+plot(close, title="BTC/USD 30s Chart", color=color.blue)
+
+// Channel Lines
+upperChannel = ta.highest(upperBand, 20)
+lowerChannel = ta.lowest(lowerBand, 20)
+
+// Add channel line conditions for bullish and bearish predictions
+filteredUp := filteredUp and close > upperChannel
+filteredDown := filteredDown and close < lowerChannel
